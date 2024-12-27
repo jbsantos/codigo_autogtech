@@ -76,27 +76,26 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
           method: "PUT",
           data: option,
         });
-       if (attachment != null) {
+		if (attachment != null) {
           const formData = new FormData();
           formData.append("file", attachment);
           await api.post(`/queue-options/${option.id}/media-upload`, formData);
-        }		
+        }
       } else {
         const { data } = await api.request({
           url: `/queue-options`,
           method: "POST",
           data: option,
         });
-        option.id = data.id;
-       if (attachment != null) {
+		if (attachment != null) {
           const formData = new FormData();
           formData.append("file", attachment);
           await api.post(`/queue-options/${option.id}/media-upload`, formData);
         }
+        option.id = data.id;
       }
       option.edition = false;
       updateOptions();
-      setAttachment(null)
     } catch (e) {
       toastError(e);
     }
@@ -127,6 +126,13 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
     updateOptions();
   };
 
+  const handleAttachmentFile = (e) => {
+    const file = head(e.target.files);
+    if (file) {
+      setAttachment(file);
+    }
+  };
+
   const handleOptionChangeTitle = (event, index) => {
     options[index].title = event.target.value;
     updateOptions();
@@ -135,13 +141,6 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
   const handleOptionChangeMessage = (event, index) => {
     options[index].message = event.target.value;
     updateOptions();
-  };
-
-  const handleAttachmentFile = (e) => {
-    const file = head(e.target.files);
-    if (file) {
-      setAttachment(file);
-    }
   };
 
   const renderTitle = (index) => {
@@ -156,7 +155,7 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
             className={classes.input}
             placeholder="Título da opção"
           />
-           <div style={{ display: "none" }}>
+                    <div style={{ display: "none" }}>
             <input
               type="file"
               ref={attachmentFile}
@@ -183,7 +182,7 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
               >
                 <DeleteOutlineIcon />
               </IconButton>
-               {!attachment && !option.mediaPath && (
+              {!attachment && !option.mediaPath && (
                 <IconButton
                   variant="outlined"
                   color="primary"
@@ -194,14 +193,14 @@ export function QueueOptionStepper({ queueId, options, updateOptions }) {
                   <AttachFile/>
                 </IconButton>
               )}
-               {(option.mediaPath || attachment) && (
+                             {(option.mediaPath || attachment) && (
                     <Grid xs={12} item>
                       <Button startIcon={<AttachFile />}>
                         {attachment != null
                           ? attachment.name
                           : option.mediaName}
                       </Button>
-
+                      
                         <IconButton
                           onClick={() => setConfirmationOpen(true)}
                           color="secondary"

@@ -1,23 +1,23 @@
-import React, { useState, useEffect, useContext } from "react";
-import { useParams, useHistory } from "react-router-dom";
+import React, { useContext, useEffect, useState } from "react";
+import { useHistory, useParams } from "react-router-dom";
 
-import { toast } from "react-toastify";
 import clsx from "clsx";
+import { toast } from "react-toastify";
 
 import { Paper, makeStyles } from "@material-ui/core";
 
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
+import { SocketContext } from "../../context/Socket/SocketContext";
+import toastError from "../../errors/toastError";
+import api from "../../services/api";
 import ContactDrawer from "../ContactDrawer";
 import MessageInput from "../MessageInputCustom/";
+import MessagesList from "../MessagesList";
+import { TagsContainer } from "../TagsContainer";
+import TicketActionButtons from "../TicketActionButtonsCustom";
 import TicketHeader from "../TicketHeader";
 import TicketInfo from "../TicketInfo";
-import TicketActionButtons from "../TicketActionButtonsCustom";
-import MessagesList from "../MessagesList";
-import api from "../../services/api";
-import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
-import toastError from "../../errors/toastError";
-import { AuthContext } from "../../context/Auth/AuthContext";
-import { TagsContainer } from "../TagsContainer";
-import { socketConnection } from "../../services/socket";
 
 const drawerWidth = 320;
 
@@ -68,6 +68,8 @@ const Ticket = () => {
   const [contact, setContact] = useState({});
   const [ticket, setTicket] = useState({});
 
+  const socketManager = useContext(SocketContext);
+
   useEffect(() => {
     setLoading(true);
     const delayDebounceFn = setTimeout(() => {
@@ -99,17 +101,17 @@ const Ticket = () => {
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
-    const socket = socketConnection({ companyId });
+    const socket = socketManager.getSocket(companyId);
 
-    socket.on("connect", () => socket.emit("joinChatBox", `${ticket.id}`));
+    socket.on("ready", () => socket.emit("joinChatBox", `${ticket.id}`));
 
     socket.on(`company-${companyId}-ticket`, (data) => {
-      if (data.action === "update") {
+      if (data.action === "update" && data.ticket.id === ticket.id) {
         setTicket(data.ticket);
       }
 
-      if (data.action === "delete") {
-        toast.success("Ticket deleted sucessfully.");
+      if (data.action === "delete" && data.ticketId === ticket.id) {
+        // toast.success("Ticket deleted sucessfully.");
         history.push("/tickets");
       }
     });
@@ -128,7 +130,7 @@ const Ticket = () => {
     return () => {
       socket.disconnect();
     };
-  }, [ticketId, ticket, history]);
+  }, [ticketId, ticket, history, socketManager]);
 
   const handleDrawerOpen = () => {
     setDrawerOpen(true);

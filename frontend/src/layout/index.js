@@ -32,8 +32,8 @@ import { i18n } from "../translate/i18n";
 import toastError from "../errors/toastError";
 import AnnouncementsPopover from "../components/AnnouncementsPopover";
 
-import logo from "../assets/logo.png";
-import { socketConnection } from "../services/socket";
+//import logo from "../assets/logo.png";
+import { SocketContext } from "../context/Socket/SocketContext";
 import ChatPopover from "../pages/Chat/ChatPopover";
 
 import { useDate } from "../hooks/useDate";
@@ -53,11 +53,12 @@ const useStyles = makeStyles((theme) => ({
     },
     backgroundColor: theme.palette.fancyBackground,
     '& .MuiButton-outlinedPrimary': {
-      color: theme.mode === 'light' ? '#00BFFF' : '#FFF',
-      border: theme.mode === 'light' ? '1px solid rgba(0 124 102)' : '1px solid rgba(255, 255, 255, 0.5)',
+      color: theme.mode === 'light' ? '#FFF' : '#FFF',
+	  backgroundColor: theme.mode === 'light' ? '#2DDD7F' : '#1c1c1c',
+      //border: theme.mode === 'light' ? '1px solid rgba(0 124 102)' : '1px solid rgba(255, 255, 255, 0.5)',
     },
     '& .MuiTab-textColorPrimary.Mui-selected': {
-      color: theme.mode === 'light' ? '#00BFFF' : '#FFF',
+      color: theme.mode === 'light' ? '#2DDD7F' : '#FFF',
     }
   },
   avatar: {
@@ -189,6 +190,15 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const { colorMode } = useContext(ColorModeContext);
   const greaterThenSm = useMediaQuery(theme.breakpoints.up("sm"));
 
+  // Definindo os logos para modo claro e escuro
+  const logoLight = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/interno.png`;
+  const logoDark = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/logo_w.png`;
+
+  // Definindo o logo inicial com base no modo de tema atual
+  const initialLogo = theme.palette.type === 'light' ? logoLight : logoDark;
+  const [logoImg, setLogoImg] = useState(initialLogo);
+
+
   const [volume, setVolume] = useState(localStorage.getItem("volume") || 1);
 
   const { dateToClient } = useDate();
@@ -241,14 +251,16 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   // }, []);
   //##############################################################################
 
+  const socketManager = useContext(SocketContext);
+
   useEffect(() => {
-    if (document.body.offsetWidth > 600) {
+    if (document.body.offsetWidth > 1200) {
       setDrawerOpen(true);
     }
   }, []);
 
   useEffect(() => {
-    if (document.body.offsetWidth < 600) {
+    if (document.body.offsetWidth < 1000) {
       setDrawerVariant("temporary");
     } else {
       setDrawerVariant("permanent");
@@ -259,7 +271,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     const companyId = localStorage.getItem("companyId");
     const userId = localStorage.getItem("userId");
 
-    const socket = socketConnection({ companyId });
+    const socket = socketManager.getSocket(companyId);
 
     socket.on(`company-${companyId}-auth`, (data) => {
       if (data.user.id === +userId) {
@@ -280,8 +292,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
       socket.disconnect();
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [socketManager]);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -320,13 +331,20 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     }
   };
 
+  useEffect(() => {
+    // Atualiza o logo sempre que o modo do tema muda
+    setLogoImg(theme.palette.type === 'light' ? logoLight : logoDark);
+  }, [theme.palette.type]);
+
   const toggleColorMode = () => {
     colorMode.toggleColorMode();
-  }
+    setLogoImg((prevLogo) => (prevLogo === logoLight ? logoDark : logoLight));
+  };
 
   if (loading) {
     return <BackdropLoading />;
   }
+
 
   return (
     <div className={classes.root}>
@@ -342,7 +360,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
         open={drawerOpen}
       >
         <div className={classes.toolbarIcon}>
-          <img src={logo} className={classes.logo} alt="logo" />
+          <img src={`${logoImg}?r=${Math.random()}`} style={{ margin: "0 auto" , width: "50%"}} alt={`${process.env.REACT_APP_NAME_SYSTEM}`} />
           <IconButton onClick={() => setDrawerOpen(!drawerOpen)}>
             <ChevronLeftIcon />
           </IconButton>
@@ -448,7 +466,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               <MenuItem onClick={handleOpenUserModal}>
                 {i18n.t("mainDrawer.appBar.user.profile")}
               </MenuItem>
-
             </Menu>
           </div>
         </Toolbar>

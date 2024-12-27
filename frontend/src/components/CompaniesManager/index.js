@@ -1,33 +1,33 @@
-import React, { useState, useEffect } from "react";
 import {
-  makeStyles,
-  Paper,
-  Grid,
   FormControl,
+  Grid,
+  IconButton,
   InputLabel,
   MenuItem,
-  TextField,
+  Paper,
+  Select,
   Table,
-  TableHead,
   TableBody,
   TableCell,
+  TableHead,
   TableRow,
-  IconButton,
-  Select,
+  TextField,
+  makeStyles,
 } from "@material-ui/core";
-import { Formik, Form, Field } from "formik";
+import { Field, Form, Formik } from "formik";
+import React, { useEffect, useState } from "react";
 import ButtonWithSpinner from "../ButtonWithSpinner";
 import ConfirmationModal from "../ConfirmationModal";
 
 import { Edit as EditIcon } from "@material-ui/icons";
 
+import { has, head, isArray } from "lodash";
 import { toast } from "react-toastify";
 import useCompanies from "../../hooks/useCompanies";
-import usePlans from "../../hooks/usePlans";
-import ModalUsers from "../ModalUsers";
-import api from "../../services/api";
-import { head, isArray, has } from "lodash";
 import { useDate } from "../../hooks/useDate";
+import usePlans from "../../hooks/usePlans";
+import api from "../../services/api";
+import ModalUsers from "../ModalUsers";
 
 import moment from "moment";
 
@@ -76,12 +76,13 @@ export function CompanyForm(props) {
   const [firstUser, setFirstUser] = useState({});
 
   const [record, setRecord] = useState({
+	id: "",
     name: "",
     email: "",
     phone: "",
     planId: "",
     status: true,
-    campaignsEnabled: false,
+    //campaignsEnabled: false,
     dueDate: "",
     recurrence: "",
     ...initialValue,
@@ -266,7 +267,7 @@ export function CompanyForm(props) {
                   </Field>
                 </FormControl>
               </Grid>
-              <Grid xs={12} sm={6} md={2} item>
+              {/*<Grid xs={12} sm={6} md={2} item>
                 <FormControl margin="dense" variant="outlined" fullWidth>
                   <InputLabel htmlFor="status-selection">Campanhas</InputLabel>
                   <Field
@@ -281,7 +282,7 @@ export function CompanyForm(props) {
                     <MenuItem value={false}>Desabilitadas</MenuItem>
                   </Field>
                 </FormControl>
-              </Grid>
+              </Grid>*/}
               <Grid xs={12} sm={6} md={2} item>
                 <FormControl variant="outlined" fullWidth>
                   <Field
@@ -407,7 +408,7 @@ export function CompaniesManagerGrid(props) {
     return row.planId !== null ? row.plan.name : "-";
   };
 
-  const renderCampaignsStatus = (row) => {
+  {/*const renderCampaignsStatus = (row) => {
     if (
       has(row, "settings") &&
       isArray(row.settings) &&
@@ -419,22 +420,22 @@ export function CompaniesManagerGrid(props) {
       }
     }
     return "Desabilitadas";
-  };
+  };*/}
 
   const rowStyle = (record) => {
     if (moment(record.dueDate).isValid()) {
       const now = moment();
       const dueDate = moment(record.dueDate);
       const diff = dueDate.diff(now, "days");
-      if (diff === 5) {
+      if (diff >= 1 && diff <= 5) {
         return { backgroundColor: "#fffead" };
       }
-      if (diff >= -3 && diff <= 4) {
-        return { backgroundColor: "#f7cc8f" };
-      }
-      if (diff === -4) {
+      if (diff <= 0) {
         return { backgroundColor: "#fa8c8c" };
       }
+      // else {
+      //   return { backgroundColor: "#affa8c" };
+      // }
     }
     return {};
   };
@@ -451,11 +452,12 @@ export function CompaniesManagerGrid(props) {
             <TableCell align="center" style={{ width: "1%" }}>
               #
             </TableCell>
+			<TableCell align="left">ID</TableCell>
             <TableCell align="left">Nome</TableCell>
             <TableCell align="left">E-mail</TableCell>
             <TableCell align="left">Telefone</TableCell>
             <TableCell align="left">Plano</TableCell>
-            <TableCell align="left">Campanhas</TableCell>
+            {/*<TableCell align="left">Campanhas</TableCell>*/}
             <TableCell align="left">Status</TableCell>
             <TableCell align="left">Criada Em</TableCell>
             <TableCell align="left">Vencimento</TableCell>
@@ -469,11 +471,12 @@ export function CompaniesManagerGrid(props) {
                   <EditIcon />
                 </IconButton>
               </TableCell>
+			  <TableCell align="left">{row.id || "-"}</TableCell>
               <TableCell align="left">{row.name || "-"}</TableCell>
               <TableCell align="left">{row.email || "-"}</TableCell>
               <TableCell align="left">{row.phone || "-"}</TableCell>
               <TableCell align="left">{renderPlan(row)}</TableCell>
-              <TableCell align="left">{renderCampaignsStatus(row)}</TableCell>
+			{/*<TableCell align="left">{renderCampaignsStatus(row)}</TableCell>*/}
               <TableCell align="left">{renderStatus(row)}</TableCell>
               <TableCell align="left">{dateToClient(row.createdAt)}</TableCell>
               <TableCell align="left">
@@ -497,12 +500,13 @@ export default function CompaniesManager() {
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState([]);
   const [record, setRecord] = useState({
+	id: "",  
     name: "",
     email: "",
     phone: "",
     planId: "",
     status: true,
-    campaignsEnabled: false,
+    //campaignsEnabled: false,
     dueDate: "",
     recurrence: "",
   });
@@ -562,27 +566,28 @@ export default function CompaniesManager() {
   const handleCancel = () => {
     setRecord((prev) => ({
       ...prev,
+	  id: "",
       name: "",
       email: "",
       phone: "",
       planId: "",
       status: true,
-      campaignsEnabled: false,
+      //campaignsEnabled: false,
       dueDate: "",
       recurrence: "",
     }));
   };
 
   const handleSelect = (data) => {
-    let campaignsEnabled = false;
+//    let campaignsEnabled = false;
 
-    const setting = data.settings.find(
-      (s) => s.key.indexOf("campaignsEnabled") > -1
-    );
-    if (setting) {
-      campaignsEnabled =
-        setting.value === "true" || setting.value === "enabled";
-    }
+//    const setting = data.settings.find(
+//      (s) => s.key.indexOf("campaignsEnabled") > -1
+//    );
+//    if (setting) {
+//      campaignsEnabled =
+//       setting.value === "true" || setting.value === "enabled";
+//    }
 
     setRecord((prev) => ({
       ...prev,
@@ -592,7 +597,7 @@ export default function CompaniesManager() {
       email: data.email || "",
       planId: data.planId || "",
       status: data.status === false ? false : true,
-      campaignsEnabled,
+      //campaignsEnabled,
       dueDate: data.dueDate || "",
       recurrence: data.recurrence || "",
     }));

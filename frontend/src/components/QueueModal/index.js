@@ -95,22 +95,23 @@ const QueueModal = ({ open, onClose, queueId }) => {
   const [queue, setQueue] = useState(initialState);
   const [tab, setTab] = useState(0);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
-  const greetingRef = useRef();
-  const [integrations, setIntegrations] = useState([]);
   const [attachment, setAttachment] = useState(null);
   const attachmentFile = useRef(null);
+  const greetingRef = useRef();
+  const [integrations, setIntegrations] = useState([]);
   const [queueEditable, setQueueEditable] = useState(true);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
-
-  const [schedules, setSchedules] = useState([
-    { weekday: "Segunda-feira", weekdayEn: "monday", startTime: "08:00", endTime: "18:00", },
-    { weekday: "Terça-feira", weekdayEn: "tuesday", startTime: "08:00", endTime: "18:00", },
-    { weekday: "Quarta-feira", weekdayEn: "wednesday", startTime: "08:00", endTime: "18:00", },
-    { weekday: "Quinta-feira", weekdayEn: "thursday", startTime: "08:00", endTime: "18:00", },
-    { weekday: "Sexta-feira", weekdayEn: "friday", startTime: "08:00", endTime: "18:00", },
-    { weekday: "Sábado", weekdayEn: "saturday", startTime: "08:00", endTime: "12:00", },
-    { weekday: "Domingo", weekdayEn: "sunday", startTime: "00:00", endTime: "00:00", },
+  
+    const [schedules, setSchedules] = useState([
+    { weekday: "queueModal.serviceHours.monday", weekdayEn: "monday", startTimeA: "08:00", endTimeA: "12:00", startTimeB: "13:30", endTimeB: "18:00", },
+    { weekday: "queueModal.serviceHours.tuesday", weekdayEn: "tuesday", startTimeA: "08:00", endTimeA: "12:00", startTimeB: "13:30", endTimeB: "18:00", },
+    { weekday: "queueModal.serviceHours.wednesday", weekdayEn: "wednesday", startTimeA: "08:00", endTimeA: "12:00", startTimeB: "13:30", endTimeB: "18:00", },
+    { weekday: "queueModal.serviceHours.thursday", weekdayEn: "thursday", startTimeA: "08:00", endTimeA: "12:00", startTimeB: "13:30", endTimeB: "18:00", },
+    { weekday: "queueModal.serviceHours.friday", weekdayEn: "friday", startTimeA: "08:00", endTimeA: "12:00", startTimeB: "13:30", endTimeB: "18:00", },
+    { weekday: "queueModal.serviceHours.saturday", weekdayEn: "saturday", startTimeA: "08:00", endTimeA: "12:00", startTimeB: "00:00", endTimeB: "00:00", },
+    { weekday: "queueModal.serviceHours.sunday", weekdayEn: "sunday", startTimeA: "00:00", endTimeA: "00:00", startTimeB: "00:00", endTimeB: "00:00", },
   ]);
+  
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [prompts, setPrompts] = useState([]);
 
@@ -169,6 +170,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
         name: "",
         color: "",
         greetingMessage: "",
+        outOfHoursMessage: "",
         orderQueue: "",
         integrationId: ""
       });
@@ -187,6 +189,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
     }
   };
 
+
   const deleteMedia = async () => {
     if (attachment) {
       setAttachment(null);
@@ -200,14 +203,13 @@ const QueueModal = ({ open, onClose, queueId }) => {
     }
   };
 
-
   const handleSaveQueue = async (values) => {
     try {
       if (queueId) {
         await api.put(`/queue/${queueId}`, {
           ...values, schedules, promptId: selectedPrompt ? selectedPrompt : null
         });
-       if (attachment != null) {
+		if (attachment != null) {
           const formData = new FormData();
           formData.append("file", attachment);
           await api.post(`/queue/${queueId}/media-upload`, formData);
@@ -216,12 +218,12 @@ const QueueModal = ({ open, onClose, queueId }) => {
         await api.post("/queue", {
           ...values, schedules, promptId: selectedPrompt ? selectedPrompt : null
         });
-       if (attachment != null) {
+		if (attachment != null) {
           const formData = new FormData();
           formData.append("file", attachment);
           await api.post(`/queue/${queueId}/media-upload`, formData);
-        }
       }
+	  }
       toast.success("Queue saved successfully");
       handleClose();
     } catch (err) {
@@ -241,33 +243,31 @@ const QueueModal = ({ open, onClose, queueId }) => {
 
   return (
     <div className={classes.root}>
-     <ConfirmationModal
+    <ConfirmationModal
         title={i18n.t("queueModal.confirmationModal.deleteTitle")}
         open={confirmationOpen}
         onClose={() => setConfirmationOpen(false)}
         onConfirm={deleteMedia}
-      >
-        {i18n.t("queueModal.confirmationModal.deleteMessage")}
-      </ConfirmationModal>
-      <Dialog
-        maxWidth="md"
-        fullWidth={true}
-        open={open}
-        onClose={handleClose}
-        scroll="paper"
-      >
-        <DialogTitle>
-          {queueId
-            ? `${i18n.t("queueModal.title.edit")}`
-            : `${i18n.t("queueModal.title.add")}`}
-            <div style={{ display: "none" }}>
-            <input
-              type="file"
-              ref={attachmentFile}
-              onChange={(e) => handleAttachmentFile(e)}
-            />
-          </div>
-        </DialogTitle>
+      ></ConfirmationModal>
+    <Dialog
+    maxWidth="md"
+    fullWidth={true}
+    open={open}
+    onClose={handleClose}
+    scroll="paper"
+  >
+    <DialogTitle>
+      {queueId
+        ? `${i18n.t("queueModal.title.edit")}`
+        : `${i18n.t("queueModal.title.add")}`}
+       <div style={{ display: "none" }}>
+        <input
+          type="file"
+          ref={attachmentFile}
+          onChange={(e) => handleAttachmentFile(e)}
+        />
+      </div>
+    </DialogTitle>
         <Tabs
           value={tab}
           indicatorColor="primary"
@@ -453,6 +453,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
                           label={i18n.t("queueModal.form.outOfHoursMessage")}
                           type="outOfHoursMessage"
                           multiline
+                          inputRef={greetingRef}
                           rows={5}
                           fullWidth
                           name="outOfHoursMessage"
@@ -469,7 +470,7 @@ const QueueModal = ({ open, onClose, queueId }) => {
                       )}
                     </div>
                     <QueueOptions queueId={queueId} />
-                     {(queue.mediaPath || attachment) && (
+                    {(queue.mediaPath || attachment) && (
                     <Grid xs={12} item>
                       <Button startIcon={<AttachFile />}>
                         {attachment != null
@@ -489,15 +490,15 @@ const QueueModal = ({ open, onClose, queueId }) => {
                   </DialogContent>
                   <DialogActions>
                   {!attachment && !queue.mediaPath && queueEditable && (
-                      <Button
-                        color="primary"
-                        onClick={() => attachmentFile.current.click()}
-                        disabled={isSubmitting}
-                        variant="outlined"
-                      >
-                        {i18n.t("queueModal.buttons.attach")}
-                      </Button>
-                    )}
+                    <Button
+                      color="primary"
+                      onClick={() => attachmentFile.current.click()}
+                      disabled={isSubmitting}
+                      variant="outlined"
+                    >
+                      {i18n.t("queueModal.buttons.attach")}
+                    </Button>
+                  )}
                     <Button
                       onClick={handleClose}
                       color="secondary"

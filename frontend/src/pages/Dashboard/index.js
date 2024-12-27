@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
+
+import { useReactToPrint } from "react-to-print";
 
 import Paper from "@material-ui/core/Paper";
 import Container from "@material-ui/core/Container";
@@ -9,14 +11,27 @@ import InputLabel from "@material-ui/core/InputLabel";
 import Select from "@material-ui/core/Select";
 import TextField from "@material-ui/core/TextField";
 import FormHelperText from "@material-ui/core/FormHelperText";
+import Typography from "@material-ui/core/Typography";
+import { Button } from "@material-ui/core";
 
 import SpeedIcon from "@material-ui/icons/Speed";
 import GroupIcon from "@material-ui/icons/Group";
 import AssignmentIcon from "@material-ui/icons/Assignment";
 import PersonIcon from "@material-ui/icons/Person";
-import TodayIcon from '@material-ui/icons/Today';
-import BlockIcon from '@material-ui/icons/Block';
-import DoneIcon from '@material-ui/icons/Done';
+import CallIcon from "@material-ui/icons/Call";
+import MobileFriendlyIcon from '@material-ui/icons/MobileFriendly';
+import StoreIcon from '@material-ui/icons/Store';
+import RecordVoiceOverIcon from "@material-ui/icons/RecordVoiceOver";
+import GroupAddIcon from "@material-ui/icons/GroupAdd";
+import HourglassEmptyIcon from "@material-ui/icons/HourglassEmpty";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
+import ForumIcon from "@material-ui/icons/Forum";
+import FilterListIcon from "@material-ui/icons/FilterList";
+import ClearIcon from "@material-ui/icons/Clear";
+import SendIcon from "@material-ui/icons/Send";
+import MessageIcon from "@material-ui/icons/Message";
+import AccessAlarmIcon from "@material-ui/icons/AccessAlarm";
+import TimerIcon from "@material-ui/icons/Timer";
 
 import { makeStyles } from "@material-ui/core/styles";
 import { grey, blue } from "@material-ui/core/colors";
@@ -29,16 +44,29 @@ import CardCounter from "../../components/Dashboard/CardCounter";
 import TableAttendantsStatus from "../../components/Dashboard/TableAttendantsStatus";
 import { isArray } from "lodash";
 
-import useDashboard from "../../hooks/useDashboard";
-import useCompanies from "../../hooks/useCompanies";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
+import useDashboard from "../../hooks/useDashboard";
+import useTickets from "../../hooks/useTickets";
+import useUsers from "../../hooks/useUsers";
+import useContacts from "../../hooks/useContacts";
+import useMessages from "../../hooks/useMessages";
+import { ChatsUser } from "./ChartsUser";
+
+import Filters from "./Filters";
 import { isEmpty } from "lodash";
 import moment from "moment";
+import { ChartsDate } from "./ChartsDate";
+import ChartsAppointmentsAtendent from "./ChartsAppointmentsAtendent";
+import ChartsRushHour from "./ChartsRushHour";
+import ChartsDepartamentRatings from "./ChartsDepartamentRatings";
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    paddingTop: theme.spacing(4),
-    paddingBottom: theme.spacing(4),
+    paddingTop: theme.spacing(1),
+    paddingBottom: theme.padding,
+    paddingLeft: theme.spacing(1),
+    paddingRight: theme.spacing(2),
   },
   fixedHeightPaper: {
     padding: theme.spacing(2),
@@ -55,13 +83,30 @@ const useStyles = makeStyles((theme) => ({
     width: theme.spacing(7),
     height: theme.spacing(7),
   },
+  card: {
+    padding: theme.spacing(1),
+    display: "flex",
+    overflow: "hidden",
+    flexDirection: "column",
+    height: 120, // Altura menor
+    backgroundColor:
+      theme.palette.type === "dark"
+        ? theme.palette.boxticket.main
+        : theme.palette.primary.main,
+    color: "#fff",
+  },
+  cardIcon: {
+    fontSize: 50, // Ícone menor
+    color: "#fff",
+  },
   cardTitle: {
-    fontSize: "18px",
-    color: blue[700],
+    fontSize: "15px", // Tamanho menor para o título
+    fontWeight: 700,
   },
   cardSubtitle: {
-    color: grey[600],
-    fontSize: "14px",
+    fontSize: "25px", // Subtítulo ajustado
+    fontWeight: 600,
+    color: theme.palette.contadordash.main,
   },
   alignRight: {
     textAlign: "right",
@@ -73,22 +118,79 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
     textAlign: "left",
   },
+  iframeDashboard: {
+    width: "100%",
+    height: "calc(100vh - 64px)",
+    border: "none",
+  },
+  container: {
+    paddingTop: theme.spacing(4),
+    paddingBottom: theme.spacing(4),
+  },
+  fixedHeightPaper: {
+    padding: theme.spacing(2),
+    display: "flex",
+    overflow: "auto",
+    flexDirection: "column",
+    height: 240,
+  },
+  customFixedHeightPaper: {
+    padding: theme.spacing(2),
+    display: "flex",
+    overflow: "auto",
+    flexDirection: "column",
+    height: 120,
+  },
+  customFixedHeightPaperLg: {
+    padding: theme.spacing(2),
+    display: "flex",
+    overflow: "auto",
+    flexDirection: "column",
+    height: "100%",
+  },
+  fixedHeightPaper2: {
+    padding: theme.spacing(2),
+    display: "flex",
+    overflow: "auto",
+    flexDirection: "column",
+  },
 }));
 
 const Dashboard = () => {
   const classes = useStyles();
+  const pageToPrint = useRef(null);
+
   const [counters, setCounters] = useState({});
   const [attendants, setAttendants] = useState([]);
-  const [filterType, setFilterType] = useState(1);
   const [period, setPeriod] = useState(0);
-  const [companyDueDate, setCompanyDueDate] = useState();
+  const [filterType, setFilterType] = useState(1);
   const [dateFrom, setDateFrom] = useState(
     moment("1", "D").format("YYYY-MM-DD")
   );
   const [dateTo, setDateTo] = useState(moment().format("YYYY-MM-DD"));
   const [loading, setLoading] = useState(false);
+  const [visibleButtonsWithPrint, setVisibleButtonsWithPrint] = useState(true);
+
   const { find } = useDashboard();
-  const { finding } = useCompanies();
+
+  let newDate = new Date();
+  let date = newDate.getDate();
+  let month = newDate.getMonth() + 1;
+  let year = newDate.getFullYear();
+  let now = `${year}-${month < 10 ? `0${month}` : `${month}`}-${
+    date < 10 ? `0${date}` : `${date}`
+  }`;
+
+  const [showFilter, setShowFilter] = useState(false);
+  const [queueTicket, setQueueTicket] = useState(false);
+
+  const { user } = useContext(AuthContext);
+  var userQueueIds = [];
+
+  if (user.queues && user.queues.length > 0) {
+    userQueueIds = user.queues.map((q) => q.id);
+  }
+
   useEffect(() => {
     async function firstLoad() {
       await fetchData();
@@ -146,8 +248,6 @@ const Dashboard = () => {
 
     const data = await find(params);
 
-
-
     setCounters(data.counters);
     if (isArray(data.attendants)) {
       setAttendants(data.attendants);
@@ -158,33 +258,47 @@ const Dashboard = () => {
     setLoading(false);
   }
 
-  useEffect(() => {
-    async function fetchData() {
-      await loadCompanies();
-    }
-    fetchData();
-  }, [])
-  //let companyDueDate = localStorage.getItem("companyDueDate");
-  //const companyDueDate = localStorage.getItem("companyDueDate").toString();
-  const companyId = localStorage.getItem("companyId");
-  const loadCompanies = async () => {
-    setLoading(true);
-    try {
-      const companiesList = await finding(companyId);
-      setCompanyDueDate(moment(companiesList.dueDate).format("DD/MM/yyyy"));
-    } catch (e) {
-      console.log("🚀 Console Log : e", e);
-      // toast.error("Não foi possível carregar a lista de registros");
-    }
-    setLoading(false);
-  };
-
   function formatTime(minutes) {
     return moment()
       .startOf("day")
       .add(minutes, "minutes")
       .format("HH[h] mm[m]");
   }
+
+  const handlePrint = useReactToPrint({
+    documentTitle: "Impressão do Dashboard",
+    copyStyles: true,
+    onBeforePrint: () => {
+      // console.log("before printing...");
+      // setVisibleButtonsWithPrint(false);
+    },
+    onAfterPrint: () => {
+      console.log("after printing...");
+      setVisibleButtonsWithPrint(true);
+    },
+    removeAfterPrint: true,
+  });
+
+  const GetUsers = () => {
+    let count;
+    let userOnline = 0;
+    attendants.forEach((user) => {
+      if (user.online === true) {
+        userOnline = userOnline + 1;
+      }
+    });
+    count = userOnline === 0 ? 0 : userOnline;
+    return count;
+  };
+
+  const GetContacts = (all) => {
+    let props = {};
+    if (all) {
+      props = {};
+    }
+    const { count } = useContacts(props);
+    return count;
+  };
 
   function renderFilters() {
     if (filterType === 1) {
@@ -244,21 +358,184 @@ const Dashboard = () => {
 
   return (
     <div>
-      <Container maxWidth="lg" className={classes.container}>
+      <Container ref={pageToPrint} maxWidth="lg" className={classes.container}>
         <Grid container spacing={3} justifyContent="flex-end">
-          <Grid item xs={12} sm={6} md={3}>
-            <CardCounter
-              icon={<TodayIcon fontSize="inherit" />}
-              title="Data Vencimento"
-              value={companyDueDate}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Paper className={classes.fixedHeightPaper}>
-              <Chart />
-            </Paper>
-          </Grid>
+		
+{/* CONEXÕES */}
+{user.super && (
+  <Grid item xs={12} sm={6} md={3}>
+    <Paper className={classes.card} elevation={4}>
+      <Grid container spacing={1} alignItems="center">
+        <Grid item xs={8}>
+          <Typography component="h3" variant="subtitle1" className={classes.cardTitle}>
+            Conexões Ativas
+          </Typography>
+          <Typography component="h1" variant="h6" className={classes.cardSubtitle}>
+            {counters.totalWhatsappSessions}
+          </Typography>
+        </Grid>
+        <Grid item xs={4}>
+          <MobileFriendlyIcon className={classes.cardIcon} />
+        </Grid>
+      </Grid>
+    </Paper>
+  </Grid>
+)}
+
+{/* EMPRESAS */}
+{user.super && (
+  <Grid item xs={12} sm={6} md={3}>
+    <Paper className={classes.card} elevation={4}>
+      <Grid container spacing={1} alignItems="center">
+        <Grid item xs={8}>
+          <Typography component="h3" variant="subtitle1" className={classes.cardTitle}>
+            Empresas
+          </Typography>
+          <Typography component="h1" variant="h6" className={classes.cardSubtitle}>
+            {counters.totalCompanies}
+          </Typography>
+        </Grid>
+        <Grid item xs={4}>
+          <StoreIcon className={classes.cardIcon} style={{ color: "#FF34B3" }} />
+        </Grid>
+      </Grid>
+    </Paper>
+  </Grid>
+)}
+
+{/* EM ATENDIMENTO */}
+<Grid item xs={12} sm={6} md={3}>
+  <Paper className={classes.card} elevation={4}>
+    <Grid container spacing={1} alignItems="center">
+      <Grid item xs={8}>
+        <Typography component="h3" variant="subtitle1" className={classes.cardTitle}>
+          Em Conversa
+        </Typography>
+        <Typography component="h1" variant="h6" className={classes.cardSubtitle}>
+          {counters.supportHappening}
+        </Typography>
+      </Grid>
+      <Grid item xs={4}>
+        <CallIcon className={classes.cardIcon} />
+      </Grid>
+    </Grid>
+  </Paper>
+</Grid>
+
+{/* AGUARDANDO */}
+<Grid item xs={12} sm={6} md={3}>
+  <Paper className={classes.card} elevation={6}>
+    <Grid container spacing={1} alignItems="center">
+      <Grid item xs={8}>
+        <Typography component="h3" variant="subtitle1" className={classes.cardTitle}>
+          Aguardando
+        </Typography>
+        <Typography component="h1" variant="h6" className={classes.cardSubtitle}>
+          {counters.supportPending}
+        </Typography>
+      </Grid>
+      <Grid item xs={4}>
+        <HourglassEmptyIcon className={classes.cardIcon} />
+      </Grid>
+    </Grid>
+  </Paper>
+</Grid>
+
+{/* NOVOS CONTATOS */}
+<Grid item xs={12} sm={6} md={3}>
+  <Paper className={classes.card} elevation={6}>
+    <Grid container spacing={1} alignItems="center">
+      <Grid item xs={8}>
+        <Typography component="h3" variant="subtitle1" className={classes.cardTitle}>
+          Novos Contatos
+        </Typography>
+        <Typography component="h1" variant="h6" className={classes.cardSubtitle}>
+          {GetContacts(true)}
+        </Typography>
+      </Grid>
+      <Grid item xs={4}>
+        <GroupAddIcon className={classes.cardIcon} />
+      </Grid>
+    </Grid>
+  </Paper>
+</Grid>
+
+{/* T.M. DE ATENDIMENTO */}
+<Grid item xs={12} sm={6} md={3}>
+  <Paper className={classes.card} elevation={6}>
+    <Grid container spacing={1} alignItems="center">
+      <Grid item xs={8}>
+        <Typography component="h3" variant="subtitle1" className={classes.cardTitle}>
+          T.M. de Conversa
+        </Typography>
+        <Typography component="h1" variant="h6" className={classes.cardSubtitle}>
+          {formatTime(counters.avgSupportTime)}
+        </Typography>
+      </Grid>
+      <Grid item xs={4}>
+        <AccessAlarmIcon className={classes.cardIcon} />
+      </Grid>
+    </Grid>
+  </Paper>
+</Grid>
+
+{/* FINALIZADOS */}
+<Grid item xs={12} sm={6} md={3}>
+  <Paper className={classes.card} elevation={6}>
+    <Grid container spacing={1} alignItems="center">
+      <Grid item xs={8}>
+        <Typography component="h3" variant="subtitle1" className={classes.cardTitle}>
+          Finalizados
+        </Typography>
+        <Typography component="h1" variant="h6" className={classes.cardSubtitle}>
+          {counters.supportFinished}
+        </Typography>
+      </Grid>
+      <Grid item xs={4}>
+        <CheckCircleIcon className={classes.cardIcon} />
+      </Grid>
+    </Grid>
+  </Paper>
+</Grid>
+
+
+		{/* T.M. DE ESPERA */}
+		<Grid item xs={12} sm={6} md={3}>
+		  <Paper
+			className={classes.card}
+			style={{ overflow: "hidden" }}
+			elevation={6}
+		  >
+			<Grid container spacing={1} alignItems="center">
+			  {/* Texto */}
+			  <Grid item xs={8}>
+				<Typography 
+				  component="h3" 
+				  variant="subtitle1" 
+				  className={classes.cardTitle}
+				>
+				  T.M. de Espera
+				</Typography>
+				<Typography 
+				  component="h1" 
+				  variant="h6" 
+				  className={classes.cardSubtitle}
+				>
+				  {formatTime(counters.avgWaitTime)}
+				</Typography>
+			  </Grid>
+			  {/* Ícone */}
+			  <Grid item xs={4}>
+				<TimerIcon
+				  className={classes.cardIcon}
+				/>
+			  </Grid>
+			</Grid>
+		  </Paper>
+		</Grid>
+
+		  
+		  		          {/* FILTROS */}
           <Grid item xs={12} sm={6} md={4}>
             <FormControl className={classes.selectContainer}>
               <InputLabel id="period-selector-label">Tipo de Filtro</InputLabel>
@@ -276,64 +553,40 @@ const Dashboard = () => {
 
           {renderFilters()}
 
-          <Grid item xs={12} className={classes.alignRight}>
-            <ButtonWithSpinner
-              loading={loading}
-              onClick={() => fetchData()}
-              variant="contained"
-              color="primary"
-            >
-              Filtrar
-            </ButtonWithSpinner>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <CardCounter
-              icon={<GroupIcon fontSize="inherit" />}
-              title="Atd. Pendentes"
-              value={counters.supportPending}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <CardCounter
-              icon={<GroupIcon fontSize="inherit" />}
-              title="Atd. Acontecendo"
-              value={counters.supportHappening}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <CardCounter
-              icon={<AssignmentIcon fontSize="inherit" />}
-              title="Atd. Realizados"
-              value={counters.supportFinished}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <CardCounter
-              icon={<PersonIcon fontSize="inherit" />}
-              title="Leads"
-              value={counters.leads}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <CardCounter
-              icon={<SpeedIcon fontSize="inherit" />}
-              title="T.M. de Atendimento"
-              value={formatTime(counters.avgSupportTime)}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <CardCounter
-              icon={<SpeedIcon fontSize="inherit" />}
-              title="T.M. de Espera"
-              value={formatTime(counters.avgWaitTime)}
-              loading={loading}
-            />
-          </Grid>
+          {/* BOTOES DE FILTRO E IMPRESSAO */}
+          {visibleButtonsWithPrint && (
+            <div style={{ display: "flex", flexDirection: "row", gap: 8 }}>
+              <Grid item xs={12} className={classes.alignRight}>
+                <ButtonWithSpinner
+                  loading={loading}
+                  onClick={() => fetchData()}
+                  variant="contained"
+                  color="primary"
+                >
+                  Filtrar
+                </ButtonWithSpinner>
+              </Grid>
+
+              <Grid item xs={12} className={classes.alignRight}>
+                <ButtonWithSpinner
+                  loading={loading}
+                  onClick={() => {
+                    setVisibleButtonsWithPrint(false);
+                    setTimeout(
+                      () => handlePrint(null, () => pageToPrint.current),
+                      500
+                    );
+                  }}
+                  variant="contained"
+                  color="primary"
+                >
+                  Imprimir
+                </ButtonWithSpinner>
+              </Grid>
+            </div>
+          )}
+
+          {/* USUARIOS ONLINE */}
           <Grid item xs={12}>
             {attendants.length ? (
               <TableAttendantsStatus
@@ -342,7 +595,30 @@ const Dashboard = () => {
               />
             ) : null}
           </Grid>
+
+          {/* TOTAL DE ATENDIMENTOS POR USUARIO */}
+          <Grid item xs={12}>
+            <Paper className={classes.fixedHeightPaper2}>
+              <ChatsUser />
+            </Paper>
+          </Grid>
+
+          {/* TOTAL DE ATENDIMENTOS */}
+          <Grid item xs={12}>
+            <Paper className={classes.fixedHeightPaper2}>
+              <ChartsDate />
+            </Paper>
+          </Grid>
         </Grid>
+
+        {/* ATENDIMENTOS POR ATENDENTE */}
+        <ChartsAppointmentsAtendent />
+
+        {/* HORARIO DE PICOS */}
+        <ChartsRushHour />
+
+        {/* MEDIA DE AVALIAÇÔES */}
+        <ChartsDepartamentRatings />
       </Container>
     </div>
   );

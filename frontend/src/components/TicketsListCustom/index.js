@@ -10,7 +10,7 @@ import TicketsListSkeleton from "../TicketsListSkeleton";
 import useTickets from "../../hooks/useTickets";
 import { i18n } from "../../translate/i18n";
 import { AuthContext } from "../../context/Auth/AuthContext";
-import { socketConnection } from "../../services/socket";
+import { SocketContext } from "../../context/Socket/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
   ticketsListWrapper: {
@@ -138,6 +138,15 @@ const reducer = (state, action) => {
     return [...state];
   }
 
+  if (action.type === "UPDATE_TICKET_PRESENCE") {
+    const data = action.payload;
+    const ticketIndex = state.findIndex((t) => t.id === data.ticketId);
+    if (ticketIndex !== -1) {
+      state[ticketIndex].presence = data.presence;
+    }
+    return [...state];
+  }
+
   if (action.type === "DELETE_TICKET") {
     const ticketId = action.payload;
     const ticketIndex = state.findIndex((t) => t.id === ticketId);
@@ -170,6 +179,8 @@ const TicketsListCustom = (props) => {
   const { user } = useContext(AuthContext);
   const { profile, queues } = user;
 
+  const socketManager = useContext(SocketContext);
+
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
@@ -200,7 +211,7 @@ const TicketsListCustom = (props) => {
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
-    const socket = socketConnection({ companyId });
+    const socket = socketManager.getSocket(companyId);
 
     const shouldUpdateTicket = (ticket) =>
       (!ticket.userId || ticket.userId === user?.id || showAll) &&
@@ -209,7 +220,7 @@ const TicketsListCustom = (props) => {
     const notBelongsToUserQueues = (ticket) =>
       ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1;
 
-    socket.on("connect", () => {
+    socket.on("ready", () => {
       if (status) {
         socket.emit("joinTickets", status);
       } else {
@@ -226,7 +237,7 @@ const TicketsListCustom = (props) => {
         });
       }
 
-      if (data.action === "update" && shouldUpdateTicket(data.ticket)) {
+      if (data.action === "update" && shouldUpdateTicket(data.ticket) && data.ticket.status === status) {
         dispatch({
           type: "UPDATE_TICKET",
           payload: data.ticket,
@@ -246,18 +257,25 @@ const TicketsListCustom = (props) => {
       const queueIds = queues.map((q) => q.id);
       if (
         profile === "user" &&
-        (queueIds.indexOf(data.ticket.queue?.id) === -1 ||
+        (queueIds.indexOf(data.ticket?.queue?.id) === -1 ||
           data.ticket.queue === null)
       ) {
         return;
       }
 
-      if (data.action === "create" && shouldUpdateTicket(data.ticket)) {
+      if (data.action === "create" && shouldUpdateTicket(data.ticket) && ( status === undefined || data.ticket.status === status)) {
         dispatch({
           type: "UPDATE_TICKET_UNREAD_MESSAGES",
           payload: data.ticket,
         });
       }
+    });
+
+    socket.on(`company-${companyId}-presence`, (data) => {
+      dispatch({
+        type: "UPDATE_TICKET_PRESENCE",
+        payload: data,
+      });
     });
 
     socket.on(`company-${companyId}-contact`, (data) => {
@@ -272,14 +290,15 @@ const TicketsListCustom = (props) => {
     return () => {
       socket.disconnect();
     };
-  }, [status, showAll, user, selectedQueueIds, tags, users, profile, queues]);
+  }, [status, showAll, user, selectedQueueIds, tags, users, profile, queues, socketManager]);
 
+  
   useEffect(() => {
-    if (typeof updateCount === "function") {
-      updateCount(ticketsList.length);
+    const count = ticketsList.filter((ticket) => !ticket.isGroup).length;
+    if (typeof updateCount === 'function') {
+      updateCount(count);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketsList]);
+  }, [ticketsList, updateCount]);
 
   const loadMore = () => {
     setPageNumber((prevState) => prevState + 1);
@@ -316,9 +335,11 @@ const TicketsListCustom = (props) => {
             </div>
           ) : (
             <>
-              {ticketsList.map((ticket) => (
-                <TicketListItem ticket={ticket} key={ticket.id} />
-              ))}
+              {ticketsList
+                .filter((ticket) => ticket.isGroup.toString() === 'false')
+                .map((ticket) => (
+                  <TicketListItem ticket={ticket} key={ticket.id} />
+                ))}
             </>
           )}
           {loading && <TicketsListSkeleton />}

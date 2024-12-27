@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useState } from "react";
+import React, { useEffect, useReducer, useState, useContext } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import toastError from "../../errors/toastError";
 import Popover from "@material-ui/core/Popover";
@@ -25,7 +25,7 @@ import {
 import api from "../../services/api";
 import { isArray } from "lodash";
 import moment from "moment";
-import { socketConnection } from "../../services/socket";
+import { SocketContext } from "../../context/Socket/SocketContext";
 
 const useStyles = makeStyles((theme) => ({
   mainPaper: {
@@ -39,9 +39,9 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function AnnouncementDialog({ announcement, open, handleClose }) {
-  const getMediaPath = (filename) => {
-    return `${process.env.REACT_APP_BACKEND_URL}/public/${filename}`;
-  };
+  // const getMediaPath = (filename) => {
+  //   return path.join(`${process.env.REACT_APP_BACKEND_URL}`,"public", "announcements",`${filename}`);
+  // };
   return (
     <Dialog
       open={open}
@@ -59,12 +59,20 @@ function AnnouncementDialog({ announcement, open, handleClose }) {
               textAlign: "center",
               width: "400px",
               height: 300,
-              backgroundImage: `url(${getMediaPath(announcement.mediaPath)})`,
               backgroundRepeat: "no-repeat",
               backgroundSize: "contain",
               backgroundPosition: "center",
             }}
-          ></div>
+          >
+		    <img
+              alt={`announcement image`}
+              src={announcement.mediaPath}
+              style={{
+                width: "95%",
+                height: "100%",
+              }}
+            />
+		  </div>
         )}
         <DialogContentText id="alert-dialog-description">
           {announcement.text}
@@ -140,6 +148,8 @@ export default function AnnouncementsPopover() {
   const [announcement, setAnnouncement] = useState({});
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false);
 
+  const socketManager = useContext(SocketContext);
+
   useEffect(() => {
     dispatch({ type: "RESET" });
     setPageNumber(1);
@@ -156,7 +166,11 @@ export default function AnnouncementsPopover() {
 
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
-    const socket = socketConnection({ companyId });
+    const socket = socketManager.getSocket(companyId);
+    
+    if (!socket) {
+      return () => {}; 
+    }
 
     socket.on(`company-announcement`, (data) => {
       if (data.action === "update" || data.action === "create") {
@@ -170,7 +184,7 @@ export default function AnnouncementsPopover() {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [socketManager]);
 
   const fetchAnnouncements = async () => {
     try {
@@ -218,9 +232,9 @@ export default function AnnouncementsPopover() {
     }
   };
 
-  const getMediaPath = (filename) => {
+  {/* const getMediaPath = (filename) => {
     return `${process.env.REACT_APP_BACKEND_URL}/public/${filename}`;
-  };
+  };*/}
 
   const handleShowAnnouncementDialog = (record) => {
     setAnnouncement(record);
@@ -291,8 +305,7 @@ export default function AnnouncementsPopover() {
                   {item.mediaPath && (
                     <ListItemAvatar>
                       <Avatar
-                        alt={item.mediaName}
-                        src={getMediaPath(item.mediaPath)}
+                        src={item.mediaPath}
                       />
                     </ListItemAvatar>
                   )}

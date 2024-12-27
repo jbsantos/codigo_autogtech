@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import qs from 'query-string'
+import qs from 'query-string';
 
 import * as Yup from "yup";
 import { useHistory } from "react-router-dom";
@@ -14,6 +14,8 @@ import TextField from "@material-ui/core/TextField";
 import Link from "@material-ui/core/Link";
 import Grid from "@material-ui/core/Grid";
 import Box from "@material-ui/core/Box";
+import InputMask from 'react-input-mask';
+import api from "../../services/api";
 import {
 	FormControl,
 	InputLabel,
@@ -22,14 +24,14 @@ import {
 } from "@material-ui/core";
 import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
 import Typography from "@material-ui/core/Typography";
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, useTheme } from "@material-ui/core/styles";  // Added useTheme
 import Container from "@material-ui/core/Container";
-import logo from "../../assets/logo.png";
 import { i18n } from "../../translate/i18n";
 
 import { openApi } from "../../services/api";
 import toastError from "../../errors/toastError";
 import moment from "moment";
+
 const Copyright = () => {
 	return (
 		<Typography variant="body2" color="textSecondary" align="center">
@@ -75,17 +77,58 @@ const UserSchema = Yup.object().shape({
 const SignUp = () => {
 	const classes = useStyles();
 	const history = useHistory();
-	let companyId = null
+	const theme = useTheme();  // Added to access theme
+	const [allowregister, setallowregister] = useState('enabled');
+    const [trial, settrial] = useState('3');
+	
+	const logoLight = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/interno.png`;
+	const logoDark = `${process.env.REACT_APP_BACKEND_URL}/public/logotipos/logo_w.png`;
 
-	const params = qs.parse(window.location.search)
+	// Use theme.palette.type to set the initial logo based on light or dark mode
+	const initialLogo = theme.palette.type === 'light' ? logoLight : logoDark;
+	const [logoImg, setLogoImg] = useState(initialLogo);
+	
+	let companyId = null;
+
+	useEffect(() => {
+        fetchallowregister();
+        fetchtrial();
+    }, []);
+
+    const fetchtrial = async () => {
+        try {
+            const responsevvv = await api.get("/settings/trial");
+            const allowtrialX = responsevvv.data.value;
+            settrial(allowtrialX);
+        } catch (error) {
+            console.error('Error retrieving trial', error);
+        }
+    };
+
+    const fetchallowregister = async () => {
+        try {
+            const responsevv = await api.get("/settings/allowregister");
+            const allowregisterX = responsevv.data.value;
+            setallowregister(allowregisterX);
+        } catch (error) {
+            console.error('Error retrieving allowregister', error);
+        }
+    };
+
+    if(allowregister === "disabled"){
+    	history.push("/login");    
+    }
+
+	const params = qs.parse(window.location.search);
 	if (params.companyId !== undefined) {
-		companyId = params.companyId
+		companyId = params.companyId;
 	}
 
-	const initialState = { name: "", email: "", phone: "", password: "", planId: "", };
+	const initialState = { name: "", email: "", phone: "", password: "", planId: "disabled" };
 
 	const [user] = useState(initialState);
-	const dueDate = moment().add(3, "day").format();
+	const dueDate = moment().add(trial, "day").format();
+
 	const handleSignUp = async values => {
 		Object.assign(values, { recurrence: "MENSAL" });
 		Object.assign(values, { dueDate: dueDate });
@@ -102,7 +145,7 @@ const SignUp = () => {
 	};
 
 	const [plans, setPlans] = useState([]);
-	const { list: listPlans } = usePlans();
+	const { register: listPlans } = usePlans();
 
 	useEffect(() => {
 		async function fetchData() {
@@ -112,18 +155,13 @@ const SignUp = () => {
 		fetchData();
 	}, []);
 
-
 	return (
 		<Container component="main" maxWidth="xs">
 			<CssBaseline />
 			<div className={classes.paper}>
 				<div>
-					<img style={{ margin: "0 auto", height: "80px", width: "100%" }} src={logo} alt="Whats" />
+				<img src={`${logoImg}?r=${Math.random()}`} style={{ margin: "0 auto" , width: "50%"}} alt={`${process.env.REACT_APP_NAME_SYSTEM}`} />
 				</div>
-				{/*<Typography component="h1" variant="h5">
-					{i18n.t("signup.title")}
-				</Typography>*/}
-				{/* <form className={classes.form} noValidate onSubmit={handleSignUp}> */}
 				<Formik
 					initialValues={user}
 					enableReinitialize={true}
@@ -169,19 +207,29 @@ const SignUp = () => {
 								
 								<Grid item xs={12}>
 									<Field
-										as={TextField}
+										as={InputMask}
+										mask="(99) 99999-9999"
 										variant="outlined"
 										fullWidth
 										id="phone"
-										label="Telefone com (DDD)"
 										name="phone"
-										error={touched.email && Boolean(errors.email)}
-										helperText={touched.email && errors.email}
+										error={touched.phone && Boolean(errors.phone)}
+										helperText={touched.phone && errors.phone}
 										autoComplete="phone"
 										required
-									/>
+									>
+										{({ field }) => (
+											<TextField
+												{...field}
+												variant="outlined"
+												fullWidth
+												label="DDD988888888"
+												inputProps={{ maxLength: 11 }} // Definindo o limite de caracteres
+											/>
+										)}
+									</Field>
 								</Grid>
-
+								
 								<Grid item xs={12}>
 									<Field
 										as={TextField}
@@ -197,6 +245,7 @@ const SignUp = () => {
 										required
 									/>
 								</Grid>
+
 								<Grid item xs={12}>
 									<InputLabel htmlFor="plan-selection">Plano</InputLabel>
 									<Field
@@ -208,9 +257,12 @@ const SignUp = () => {
 										name="planId"
 										required
 									>
+                                        <MenuItem value="disabled" disabled>
+                                        	<em>Selecione seu plano de assinatura</em>
+										</MenuItem>
 										{plans.map((plan, key) => (
 											<MenuItem key={key} value={plan.id}>
-												{plan.name} - Atendentes: {plan.users} - WhatsApp: {plan.connections} - Filas: {plan.queues} - R$ {plan.value}
+										        {plan.name} - {plan.connections} WhatsApps - {plan.users} Usuários - R$ {plan.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 											</MenuItem>
 										))}
 									</Field>
@@ -222,17 +274,13 @@ const SignUp = () => {
 								variant="contained"
 								color="primary"
 								className={classes.submit}
+								disabled={isSubmitting}
 							>
 								{i18n.t("signup.buttons.submit")}
 							</Button>
-							<Grid container justify="flex-end">
+							<Grid container justifyContent="flex-end">
 								<Grid item>
-									<Link
-										href="#"
-										variant="body2"
-										component={RouterLink}
-										to="/login"
-									>
+									<Link component={RouterLink} to="/login" variant="body2">
 										{i18n.t("signup.buttons.login")}
 									</Link>
 								</Grid>
@@ -241,7 +289,9 @@ const SignUp = () => {
 					)}
 				</Formik>
 			</div>
-			<Box mt={5}>{/* <Copyright /> */}</Box>
+			<Box mt={5}>
+				<Copyright />
+			</Box>
 		</Container>
 	);
 };
